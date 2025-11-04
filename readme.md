@@ -63,6 +63,7 @@ Copy code
 ```bash
 git clone https://github.com/devrajbavan/Voting-List-Extracter.git
 cd Voting-List-Extracter
+```
 2️⃣ Create a Virtual Environment
 bash
 Copy code
