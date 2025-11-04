@@ -52,193 +52,196 @@ All temporary files and folders are auto-deleted after processing, keeping the w
 ├── README.md # Documentation (this file)
 └── uploads/ # Temporary folder (auto-created & cleaned)
 
-yaml
-Copy code
 
 ---
 
 ## ⚙️ Setup Instructions
 
 ### 1️⃣ Clone the Repository
-```bash
+```
 git clone https://github.com/devrajbavan/Voting-List-Extracter.git
 cd Voting-List-Extracter
-```
 2️⃣ Create a Virtual Environment
-bash
-Copy code
-python -m venv venv
-# Activate
-venv\Scripts\activate      # Windows
-source venv/bin/activate   # Linux / macOS
-3️⃣ Install Dependencies
-bash
-Copy code
-pip install -r requirements.txt
-4️⃣ Install Tesseract OCR
-🔹 Windows:
+```
+python -m venv venv<br>
+# Activate<br>
+venv\Scripts\activate      # Windows<br>
+source venv/bin/activate   # Linux / macOS<br>
+```
+
+3️⃣ Install Dependencies<br>
+```
+pip install -r requirements.txt<br>
+```
+
+4️⃣ Install Tesseract OCR<br>
+🔹 Windows:<br>
 Download and install from Tesseract OCR GitHub Releases.
 
-Set the path in main.py:
+Set the path in ```main.py```:
+```
+TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"<br>
+```
+🔹 Ubuntu / Linux:<br>
+```
+sudo apt update<br>
+sudo apt install tesseract-ocr tesseract-ocr-mar<br>
+```
 
-python
-Copy code
-TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-🔹 Ubuntu / Linux:
-bash
-Copy code
-sudo apt update
-sudo apt install tesseract-ocr tesseract-ocr-mar
-🔹 macOS (Homebrew):
-bash
-Copy code
-brew install tesseract
-📦 requirements.txt
-txt
-Copy code
-fastapi==0.115.2
-uvicorn[standard]==0.30.1
-python-multipart==0.0.9
-pillow==10.4.0
-pytesseract==0.3.13
-openpyxl==3.1.5
-▶️ Run the Application
-bash
-Copy code
+🔹 macOS (Homebrew):<br>
+```
+brew install tesseract<br>
+```
+
+📦 requirements.txt<br>
+```
+fastapi==0.115.2<br>
+uvicorn[standard]==0.30.1<br>
+python-multipart==0.0.9<br>
+pillow==10.4.0<br>
+pytesseract==0.3.13<br>
+openpyxl==3.1.5<br>
+
+```
+▶️ Run the Application<br>
+
 python main.py
+```
 or
+```
+uvicorn main:app --reload<br>
+```
 
-bash
-Copy code
-uvicorn main:app --reload
-Then open in browser:
+Then open in browser:<br>
+```
+http://127.0.0.1:8000/docs<br>
+```
 
-arduino
-Copy code
-http://127.0.0.1:8000/docs
 Use the interactive Swagger UI to upload the voter list image and download the generated Excel report.
+<hr>
 
-🧠 How It Works (Step-by-Step)
+🧠 How It Works (Step-by-Step)<br>
 1️⃣ Upload
 
-User uploads a scanned voter list image (.jpg / .png)
+User uploads a scanned voter list image (.jpg / .png)<br>
 
 2️⃣ Split Image into Cards
 
-Large sheet is divided into multiple small voter cards
+Large sheet is divided into multiple small voter cards<br>
 via crop_all_cards_from_sheet_bytes()
 
 3️⃣ Parallel OCR + Cleaning
 
-Each card is preprocessed and OCR’d in parallel using ProcessPoolExecutor.
+Each card is preprocessed and OCR’d in parallel using ProcessPoolExecutor.<br>
 Extracted text is cleaned via regex-based functions:
-
-python
-Copy code
+```
 clean_voter_name(), clean_relative_name(), clean_age(), clean_house()
+```
+
 4️⃣ Face Extraction
 
 Each voter’s photo is cropped using ratio-based coordinates via:
+```
+crop_person_face_bytes()<br>
+```
 
-python
-Copy code
-crop_person_face_bytes()
 5️⃣ Excel Report Generation
 
-A tabular Excel report is generated using openpyxl:
+A tabular Excel report is generated using ```openpyxl```:<br>
 Each voter = one row, with text + embedded photo.
 
 6️⃣ Auto Cleanup
 
-Temporary folders (uploads/<uuid>) are deleted asynchronously after 10 seconds using:
-
-python
-Copy code
+Temporary folders (```uploads/<uuid>```) are deleted asynchronously after 10 seconds using:
+```
 cleanup_run_dir()
+```
+<hr>
+
 📊 API Endpoint Details
 POST /process-voters/
 Request:
-file: image/* (.jpg, .jpeg, .png)
+```file```: image/* (.jpg, .jpeg, .png)
 
-Response:
-Returns a downloadable .xlsx Excel file.
+Response:<br>
+Returns a downloadable ```.xlsx``` Excel file.
 
 Example using curl:
 
-bash
-Copy code
-curl -X POST "http://127.0.0.1:8000/process-voters/" \
+```curl -X POST "http://127.0.0.1:8000/process-voters/" \
      -F "file=@/path/to/voters.jpg" \
      -o result.xlsx
+```
+
 🧹 Automatic Cleanup Logic
 After generating the Excel file:
 
-Each upload is stored under uploads/<uuid>/
+Each upload is stored under ```uploads/<uuid>/```
 
 A background task waits 10 seconds
 
 Then deletes that directory safely using:
 
-python
-Copy code
+```
 shutil.rmtree(run_dir)
+```
 Ensures clean disk usage after each run.
+<hr>
 
 🧠 Core Functions Overview
-Function	Description
-preprocess_for_ocr()	Enhances image before OCR
-ocr_card_text_bytes()	Extracts raw text from in-memory card image
-clean_*()	Cleans and normalizes Marathi/English OCR text
-parse_card()	Extracts structured voter data from text
-crop_all_cards_from_sheet_bytes()	Crops the main sheet into in-memory card images
-crop_person_face_bytes()	Crops voter’s face image
-generate_excel_from_cards()	Generates Excel with one voter per row and images auto-sized
-cleanup_run_dir()	Deletes temporary directories
-/process-voters/	Orchestrates the full workflow
+Function	                                   Description <HR>
+```preprocess_for_ocr()```              	Enhances image before OCR<HR>
+```ocr_card_text_bytes()```             	Extracts raw text from in-memory card image<HR>
+```clean_*()```                         	Cleans and normalizes Marathi/English OCR text<HR>
+```parse_card()```                      	Extracts structured voter data from text<HR>
+```crop_all_cards_from_sheet_bytes()``` 	Crops the main sheet into in-memory card images<HR>
+```crop_person_face_bytes()```          	Crops voter’s face image<HR>
+```generate_excel_from_cards()```       	Generates Excel with one voter per row and images auto-sized<HR>
+```cleanup_run_dir()```            	     Deletes temporary directories<HR>
+```/process-voters/```                       Orchestrates the full workflow
 
+<HR>
 🧩 Process Workflow Diagram
-mermaid
-Copy code
-graph TD
-A[📤 Upload Voter Sheet Image] --> B[🧩 Split into Individual Cards]
-B --> C[⚙️ Parallel OCR + Text Cleaning]
-C --> D[🖼️ Face Cropping]
-D --> E[📊 Excel Generation (Row-wise Layout)]
-E --> F[⬇️ File Download]
-F --> G[🧹 Background Cleanup (10s Delay)]
+```
+graph TD<br>
+A[📤 Upload Voter Sheet Image] --> B[🧩 Split into Individual Cards]<br>
+B --> C[⚙️ Parallel OCR + Text Cleaning]<br>
+C --> D[🖼️ Face Cropping]<br>
+D --> E[📊 Excel Generation (Row-wise Layout)]<br>
+E --> F[⬇️ File Download]<br>
+F --> G[🧹 Background Cleanup (10s Delay)]<br>
+```
+<hr>
 📘 Example Excel Output
-S.No.	ID	Serial	मतदाराचे पूर्ण:	पतीचे नाव / वडिलांचे नाव	घर क्रमांक :	वय :	लिंग :	Face image
-9	XYZ12345 01/01/1990	9	राम शिंदे	गणेश शिंदे	६७	32	पुरुष	🖼️ (Auto-sized image)
-10	XYZ12346 03/01/1988	10	सीमा शिंदे	राजेश शिंदे	८५	36	स्त्री	🖼️ (Auto-sized image)
 
-🛡️ Notes & Warnings
-⚠️ This API is for controlled environments — add authentication & rate limiting before public deployment.
-⚠️ Adjust cropping ratios (FACE_*_RATIO) according to your voter card layout.
-⚠️ OCR accuracy depends heavily on image clarity and proper Marathi training data.
-⚠️ Ensure mar.traineddata is installed in your Tesseract directory.
 
-🧰 Future Enhancements
-🧠 Integrate OpenCV face detection for automatic face bounding
+S.No.	ID	               Serial	मतदाराचे पूर्ण:	     पतीचे नाव / वडिलांचे नाव	घर क्रमांक :	वय : 	 लिंग :	     Face image<hr>
+9	     XYZ12345 01/01/1990	9	     राम शिंदे	             गणेश शिंदे	                         ६७/32	पुरुष	     🖼️ (Auto-sized image)<hr>
+10	     XYZ12346 03/01/1988	10	     सीमा शिंदे	        राजेश शिंदे	                          ८५/36	 स्त्री	        🖼️ (Auto-sized image)
 
-📦 Add ZIP upload support for batch sheets
 
-⏱️ Include progress tracking & OCR metrics
+<hr>
+🛡️ Notes & Warnings<br>
+⚠️ This API is for controlled environments — add authentication & rate limiting before public deployment.<br>
+⚠️ Adjust cropping ratios (``FACE_*_RATIO``) according to your voter card layout.<br>
+⚠️ OCR accuracy depends heavily on image clarity and proper Marathi training data.<br>
+⚠️ Ensure ```mar.traineddata``` is installed in your Tesseract directory.
 
-☁️ Cloud integrations (Google Drive, Dropbox)
-
+🧰 Future Enhancements<br>
+🧠 Integrate OpenCV face detection for automatic face bounding<br>
+📦 Add ZIP upload support for batch sheets<br>
+⏱️ Include progress tracking & OCR metrics<br>
+☁️ Cloud integrations (Google Drive, Dropbox)<br>
 🐳 Dockerize for containerized deployment
 
-👨‍💻 Author
-Devraj Bavan
-AI & Software Engineer | OCR, Computer Vision, Web Automation
+👨‍💻 Author<br>
+Devraj Bavan<br>
+AI & Software Engineer | OCR, Computer Vision, Web Automation<br>
 📧 [Contact for collaborations or improvements]
 
 🏁 License
 Licensed under the MIT License — free for personal and commercial use.
-
-markdown
-Copy code
-
+```
 ---
 
 ✅ **What’s Updated Here:**
