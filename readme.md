@@ -1,254 +1,233 @@
-# 🧾 Voter ID Data Extraction API (Marathi + English)
+# 🗳️ Voter Details Extraction API & Script (Marathi OCR)
 
-### ⚙️ Overview
-
-This project is a **FastAPI-based OCR automation system** that processes scanned voter list sheets, automatically **splits them into individual voter cards**, performs **OCR text extraction** in Marathi and English, **cleans and structures** the extracted data, **crops voter photos**, and finally **generates a formatted Excel sheet** — where **each voter record is represented in a single row with its corresponding face image**.
-
-All temporary files and folders are auto-deleted after processing, keeping the workspace clean and efficient.
+This repository contains two integrated Python-based tools for **extracting structured voter details (Marathi + English)** from scanned sheets of voter ID cards.  
+It supports both **standalone local script execution (`app.py`)** and **API-based automation (`API.py`)** built with **FastAPI**.
 
 ---
 
-## 🚀 Features
+## 📋 Project Overview
 
-✅ Upload a full voter list image (Marathi + English text)  
-✅ Automatically splits the sheet into individual voter cards  
-✅ Performs OCR using Tesseract in parallel for speed  
-✅ Extracts & cleans:
-- Voter ID  
-- Full name  
-- Relative name (Father/Husband)  
-- House number  
-- Age  
-- Gender  
-✅ Crops voter photos and embeds them directly in Excel  
-✅ Each voter = **1 row** in Excel (horizontal layout)  
-✅ Automatically adjusts cell height to match image size  
-✅ Auto-deletes temporary files after completion  
+### 1️⃣ `app.py` — Standalone Script
+- Input: Large image (`voters.jpg`) containing multiple voter cards in a grid layout (default: 3×10).
+- Automatically:
+  - Crops each card from the sheet.
+  - Extracts text using Tesseract OCR (`mar+eng`).
+  - Parses details like voter name, relative name, house number, age, and gender.
+  - Crops the voter’s face photo from each card.
+  - Generates a clean, formatted Excel sheet with all extracted data and thumbnails.
+- Cleans up all temporary files automatically.
 
----
-
-## 🧱 Tech Stack
-
-| Component | Purpose |
-|------------|----------|
-| **FastAPI** | Web framework for API routes |
-| **Uvicorn** | ASGI server to host the FastAPI app |
-| **Pillow (PIL)** | Image cropping, enhancement, and resizing |
-| **pytesseract** | OCR engine (supports Marathi + English) |
-| **openpyxl** | Excel file creation, styling, and image embedding |
-| **Regex (re)** | Text cleanup and field extraction |
-| **BackgroundTasks (FastAPI)** | Async cleanup after response |
-| **shutil / pathlib / uuid** | File management and cleanup utilities |
-| **concurrent.futures** | Parallel OCR for performance boost |
+### 2️⃣ `API.py` — REST API using FastAPI
+- Provides an HTTP interface for uploading voter sheet images.
+- Automatically:
+  - Crops all cards.
+  - Extracts voter details in parallel.
+  - Generates and returns a downloadable Excel file.
+  - Handles temporary file cleanup asynchronously.
+- Perfect for web integration or automation pipelines.
 
 ---
 
-## 🧩 Project Structure
+## 🧩 Features
 
-📁 Voter-OCR-API
+- **Marathi + English OCR** (via Tesseract)
+- **Parallel OCR processing** (multi-core optimized)
+- **Face extraction** from each card
+- **Auto Excel generation** with proper fonts (`Mangal`)
+- **Asynchronous cleanup**
+- **Web API endpoints for integration**
+
+---
+
+## ⚙️ System Requirements
+
+| Component | Description |
+|------------|-------------|
+| **OS** | Windows / Linux (tested on Windows 10, Ubuntu 22.04) |
+| **Python** | ≥ 3.9 |
+| **Tesseract OCR** | Installed and accessible via system PATH |
+| **RAM** | Minimum 8 GB recommended for large image sheets |
+| **Processor** | Multi-core CPU for faster OCR (uses ProcessPoolExecutor) |
+
+---
+
+## 🧰 Required Tools & Libraries
+
+Install all Python dependencies using:
+
+```bash
+pip install fastapi uvicorn pillow pytesseract openpyxl
+Additional Setup
+Install Tesseract OCR
+
+Windows default path:
+C:\Program Files\Tesseract-OCR\tesseract.exe
+
+Linux installation:
+
+bash
+Copy code
+sudo apt update
+sudo apt install tesseract-ocr tesseract-ocr-mar
+Verify installation
+
+bash
+Copy code
+tesseract --version
+Ensure Marathi language pack is available:
+
+bash
+Copy code
+tesseract --list-langs
+Should display: mar, eng
+
+🧠 Directory Structure
+graphql
+Copy code
+project/
 │
-├── main.py # Complete FastAPI + OCR + Excel logic
-├── requirements.txt # Dependencies list
-├── README.md # Documentation (this file)
-└── uploads/ # Temporary folder (auto-created & cleaned)
+├── API.py                # FastAPI-based OCR API
+├── app.py                # Standalone batch OCR + Excel generator
+├── uploads/              # Temporary upload folder (auto-created)
+├── generated_excels/     # Folder for generated Excel files
+├── temp/                 # Temporary cropped image storage
+├── voters.jpg            # Example source image (input)
+└── README.md
+🚀 1. Running app.py (Standalone Script)
+🔧 Step-by-Step Setup
+Place your source sheet image as voters.jpg in the project directory.
 
+Must contain multiple voter cards arranged in a grid (default: 3×10).
+
+Open app.py and confirm this configuration:
+
+python
+Copy code
+IMG_SOURCE = "voters.jpg"
+DEFAULT_COLS = 3
+DEFAULT_ROWS = 10
+TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+Run the script:
+
+bash
+Copy code
+python app.py
+After execution:
+
+voter_data.xlsx will be generated in the same folder.
+
+All cropped temporary files will be deleted automatically.
+
+Console output will confirm OCR progress, Excel save path, and cleanup status.
+
+🧾 Example Output
+pgsql
+Copy code
+Cropped 30 cards into 'temp'.
+Excel saved: voter_data.xlsx
+Processed: 30 voters. First serial: 9
+🧹 Cleaned up temporary folder: temp
+🌐 2. Running API.py (FastAPI Application)
+🔧 Step-by-Step Setup
+Ensure all dependencies are installed.
+
+Start the API server:
+
+bash
+Copy code
+uvicorn API:app --host 0.0.0.0 --port 8000 --reload
+or simply:
+
+bash
+Copy code
+python API.py
+Access FastAPI interactive docs:
+
+arduino
+Copy code
+http://127.0.0.1:8000/docs
+Upload your .jpg or .png voter sheet using the /process-voters/ endpoint.
+
+✅ Process Flow
+Image uploaded → Cards cropped → OCR processed in parallel
+→ Data parsed → Excel generated → Download link returned.
+
+Example JSON response:
+
+json
+Copy code
+{
+  "status": "success",
+  "file_name": "voter_data_63e7fa98b0a14b96b4c4.xlsx",
+  "download_url": "/download/63e7fa98b0a14b96b4c4"
+}
+To download Excel:
+
+arduino
+Copy code
+http://127.0.0.1:8000/download/63e7fa98b0a14b96b4c4
+⚡ Performance Tips
+For better OCR accuracy:
+
+Use high-quality scanned images (≥ 300 DPI).
+
+Ensure clear text and consistent lighting.
+
+To tune face cropping:
+
+Adjust FACE_LEFT_RATIO, FACE_TOP_RATIO, etc. in API.py.
+
+To control grid layout:
+
+Change DEFAULT_COLS and DEFAULT_ROWS as per your sheet format.
+
+🧹 Automatic Cleanup
+Temporary directories under /uploads are deleted after 10 seconds.
+
+The temp/ directory (for app.py) is cleared after Excel generation.
+
+🧾 Output Excel Format
+S.No.	ID	Serial	मतदाराचे पूर्ण	पतीचे नाव / वडिलांचे नाव	घर क्रमांक	वय	लिंग	Face image
+
+Each row represents one voter card extracted from the image grid.
+Fonts are set to Mangal for proper Marathi rendering.
+
+🛠️ Troubleshooting
+Problem	Possible Cause	Fix
+TesseractNotFoundError	Wrong Tesseract path	Update TESSERACT_CMD
+Poor OCR accuracy	Low image quality	Increase resolution / preprocess contrast
+API 500 error	Invalid image input	Ensure correct .jpg/.png upload
+Missing Marathi text	Marathi language pack not installed	sudo apt install tesseract-ocr-mar
+
+🧑‍💻 Developer Notes
+Modular design allows integrating OCR, parsing, and Excel generation as reusable functions.
+
+Can be extended to:
+
+JSON-only APIs (without Excel)
+
+Database integration
+
+Frontend upload portals
+
+🧾 License
+This project is provided for educational and automation purposes.
+You are free to modify and extend it for personal or organizational use.
+
+Author: Devraj Bavan
+Version: 1.0
+Language Support: Marathi + English
+Frameworks: FastAPI, OpenPyXL, Tesseract OCR
+
+yaml
+Copy code
 
 ---
 
-## ⚙️ Setup Instructions
-
-### 1️⃣ Clone the Repository
-```
-git clone https://github.com/devrajbavan/Voting-List-Extracter.git
-cd Voting-List-Extracter
-2️⃣ Create a Virtual Environment
-```
-python -m venv venv<br>
-# Activate<br>
-venv\Scripts\activate      # Windows<br>
-source venv/bin/activate   # Linux / macOS<br>
-```
-
-3️⃣ Install Dependencies<br>
-```
-pip install -r requirements.txt<br>
-```
-
-4️⃣ Install Tesseract OCR<br>
-🔹 Windows:<br>
-Download and install from Tesseract OCR GitHub Releases.
-
-Set the path in ```main.py```:
-```
-TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"<br>
-```
-🔹 Ubuntu / Linux:<br>
-```
-sudo apt update<br>
-sudo apt install tesseract-ocr tesseract-ocr-mar<br>
-```
-
-🔹 macOS (Homebrew):<br>
-```
-brew install tesseract<br>
-```
-
-📦 requirements.txt<br>
-```
-fastapi==0.115.2<br>
-uvicorn[standard]==0.30.1<br>
-python-multipart==0.0.9<br>
-pillow==10.4.0<br>
-pytesseract==0.3.13<br>
-openpyxl==3.1.5<br>
-
-```
-▶️ Run the Application<br>
-
-python main.py
-```
-or
-```
-uvicorn main:app --reload<br>
-```
-
-Then open in browser:<br>
-```
-http://127.0.0.1:8000/docs<br>
-```
-
-Use the interactive Swagger UI to upload the voter list image and download the generated Excel report.
-<hr>
-
-🧠 How It Works (Step-by-Step)<br>
-1️⃣ Upload
-
-User uploads a scanned voter list image (.jpg / .png)<br>
-
-2️⃣ Split Image into Cards
-
-Large sheet is divided into multiple small voter cards<br>
-via crop_all_cards_from_sheet_bytes()
-
-3️⃣ Parallel OCR + Cleaning
-
-Each card is preprocessed and OCR’d in parallel using ProcessPoolExecutor.<br>
-Extracted text is cleaned via regex-based functions:
-```
-clean_voter_name(), clean_relative_name(), clean_age(), clean_house()
-```
-
-4️⃣ Face Extraction
-
-Each voter’s photo is cropped using ratio-based coordinates via:
-```
-crop_person_face_bytes()<br>
-```
-
-5️⃣ Excel Report Generation
-
-A tabular Excel report is generated using ```openpyxl```:<br>
-Each voter = one row, with text + embedded photo.
-
-6️⃣ Auto Cleanup
-
-Temporary folders (```uploads/<uuid>```) are deleted asynchronously after 10 seconds using:
-```
-cleanup_run_dir()
-```
-<hr>
-
-📊 API Endpoint Details
-POST /process-voters/
-Request:
-```file```: image/* (.jpg, .jpeg, .png)
-
-Response:<br>
-Returns a downloadable ```.xlsx``` Excel file.
-
-Example using curl:
-
-```curl -X POST "http://127.0.0.1:8000/process-voters/" \
-     -F "file=@/path/to/voters.jpg" \
-     -o result.xlsx
-```
-
-🧹 Automatic Cleanup Logic
-After generating the Excel file:
-
-Each upload is stored under ```uploads/<uuid>/```
-
-A background task waits 10 seconds
-
-Then deletes that directory safely using:
-
-```
-shutil.rmtree(run_dir)
-```
-Ensures clean disk usage after each run.
-<hr>
-
-🧠 Core Functions Overview
-Function	                                   Description <HR>
-```preprocess_for_ocr()```              	Enhances image before OCR<HR>
-```ocr_card_text_bytes()```             	Extracts raw text from in-memory card image<HR>
-```clean_*()```                         	Cleans and normalizes Marathi/English OCR text<HR>
-```parse_card()```                      	Extracts structured voter data from text<HR>
-```crop_all_cards_from_sheet_bytes()``` 	Crops the main sheet into in-memory card images<HR>
-```crop_person_face_bytes()```          	Crops voter’s face image<HR>
-```generate_excel_from_cards()```       	Generates Excel with one voter per row and images auto-sized<HR>
-```cleanup_run_dir()```            	     Deletes temporary directories<HR>
-```/process-voters/```                       Orchestrates the full workflow
-
-<HR>
-🧩 Process Workflow Diagram
-```
-graph TD<br>
-A[📤 Upload Voter Sheet Image] --> B[🧩 Split into Individual Cards]<br>
-B --> C[⚙️ Parallel OCR + Text Cleaning]<br>
-C --> D[🖼️ Face Cropping]<br>
-D --> E[📊 Excel Generation (Row-wise Layout)]<br>
-E --> F[⬇️ File Download]<br>
-F --> G[🧹 Background Cleanup (10s Delay)]<br>
-```
-<hr>
-📘 Example Excel Output
+Would you like me to **add a “Usage Workflow Diagram” (Markdown + ASCII art)** showing the end-to-end process (Image → OCR → Parse → Excel)? It makes the README more visual and clear for presentation/documentation purposes.
 
 
-S.No.	ID	               Serial	मतदाराचे पूर्ण:	     पतीचे नाव / वडिलांचे नाव	घर क्रमांक :	वय : 	 लिंग :	     Face image<hr>
-9	     XYZ12345 01/01/1990	9	     राम शिंदे	             गणेश शिंदे	                         ६७/32	पुरुष	     🖼️ (Auto-sized image)<hr>
-10	     XYZ12346 03/01/1988	10	     सीमा शिंदे	        राजेश शिंदे	                          ८५/36	 स्त्री	        🖼️ (Auto-sized image)
 
 
-<hr>
-🛡️ Notes & Warnings<br>
-⚠️ This API is for controlled environments — add authentication & rate limiting before public deployment.<br>
-⚠️ Adjust cropping ratios (``FACE_*_RATIO``) according to your voter card layout.<br>
-⚠️ OCR accuracy depends heavily on image clarity and proper Marathi training data.<br>
-⚠️ Ensure ```mar.traineddata``` is installed in your Tesseract directory.
 
-🧰 Future Enhancements<br>
-🧠 Integrate OpenCV face detection for automatic face bounding<br>
-📦 Add ZIP upload support for batch sheets<br>
-⏱️ Include progress tracking & OCR metrics<br>
-☁️ Cloud integrations (Google Drive, Dropbox)<br>
-🐳 Dockerize for containerized deployment
 
-👨‍💻 Author<br>
-Devraj Bavan<br>
-AI & Software Engineer | OCR, Computer Vision, Web Automation<br>
-📧 [Contact for collaborations or improvements]
-
-🏁 License
-Licensed under the MIT License — free for personal and commercial use.
-```
----
-
-✅ **What’s Updated Here:**
-- Reflects **row-wise Excel layout** (one record per row).
-- Mentions **auto image resizing**.
-- Notes **parallel OCR optimization**.
-- Updated **workflow diagram** and **example output table**.
-- Corrected folder names and consistent formatting for GitHub.
-
-Would you like me to add a short **project badge section** (e.g., Python version, FastAPI version, license, etc.) at the top for GitHub visual appeal?
