@@ -1,4 +1,3 @@
-# text-extract.py - Clean OCR + Exact Excel layout (Marathi)
 import shutil
 import os
 import re
@@ -12,15 +11,15 @@ from concurrent.futures import ProcessPoolExecutor
 from openpyxl.utils import get_column_letter
 from openpyxl.drawing.image import Image as XLImage
 
-# ---------------- CONFIG / CONSTANTS ----------------
+# CONFIG / CONSTANTS
 MARATHI_FONT = Font(name="Mangal", size=11)
 MARATHI_BOLD = Font(name="Mangal", size=11, bold=True)
 
 TESSERACT_CMD = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
-IMG_SOURCE   = "voters.jpg"                # source big sheet
-IMG_DIR      = Path("temp")                # folder for cropped cards and faces
+IMG_SOURCE   = "voters.jpg"
+IMG_DIR      = Path("temp")
 EXCEL_OUT    = "voter_data.xlsx"
 START_SERIAL = 9
 
@@ -29,18 +28,13 @@ TESS_LANG = "mar+eng"
 DEFAULT_COLS = 3
 DEFAULT_ROWS = 10
 
-THUMB_W, THUMB_H = 80, 90  # thumbnail pixel size used in excel
+THUMB_W, THUMB_H = 80, 90
 
 DEV_DIGITS = "०१२३४५६७८९"
 ENG_DIGITS = "0123456789"
 
-# ---------------- IMAGE CROP / PREPROCESS ----------------
-
+# IMAGE CROP / PREPROCESS
 def crop_all_cards():
-    """
-    Crop the main sheet (IMG_SOURCE) into card_{r}_{c}.png under IMG_DIR.
-    Skips cropping if the target PNGs already exist.
-    """
     IMG_DIR.mkdir(exist_ok=True)
     existing = list(IMG_DIR.glob("card_*.png"))
     if existing:
@@ -62,25 +56,17 @@ def crop_all_cards():
     print(f"Cropped {len(saved)} cards into '{IMG_DIR}'.")
     return sorted(saved)
 
+# Preprocessing
 def preprocess(img_path: Path) -> Image.Image:
-    """
-    Lighter preprocessing: convert to L, conditional resize, optional enhancement.
-    Returns PIL.Image (grayscale) ready for OCR.
-    """
     img = Image.open(img_path).convert("L")
-    # apply enhancements if image is small or faint
-    # keep them moderate to avoid expensive ops
     if img.width < 350:
         img = img.resize((img.width * 2, img.height * 2), Image.LANCZOS)
-    # optional contrast/sharpness could be enabled conditionally
     img = ImageEnhance.Contrast(img).enhance(1.5)
     img = ImageEnhance.Sharpness(img).enhance(1.2)
     return img
 
+# Performs OCR on a Path to a card image and returns extracted text.
 def ocr_card(img_path: Path) -> str:
-    """
-    Performs OCR on a Path to a card image and returns extracted text.
-    """
     try:
         img = preprocess(img_path)
         txt = pytesseract.image_to_string(img, lang=TESS_LANG, config="--psm 6")
@@ -89,8 +75,7 @@ def ocr_card(img_path: Path) -> str:
         print(f"⚠️ OCR failed for {img_path}: {e}")
         return ""
 
-# ---------------- CLEANERS & PARSERS ----------------
-
+# CLEANERS & PARSERS
 def clean_voter_name(raw: str) -> str:
     s = re.sub(r'[|¦\\\/<>]', ' ', raw)
     s = re.sub(r'\s+[A-Za-z]{1,3}\s*', ' ', s)
@@ -134,11 +119,9 @@ def clean_gender(code: str) -> tuple:
     return "पु", "पुरुष"
 
 def parse_card(text: str) -> dict:
-    """
-    Parse OCR text and return structured fields.
-    """
     data = {
-        "ID": "", "VoterName": "", "RelationLabel": "", "RelationName": "",
+        "CardID": "", "RegNo": "", "ID": "",
+        "VoterName": "", "RelationLabel": "", "RelationName": "",
         "House": "NA", "Age": "", "GenderCode": "", "GenderFull": ""
     }
     if not text:
@@ -148,10 +131,22 @@ def parse_card(text: str) -> dict:
 
     # ID (common on first line)
     if lines:
-        m = re.search(r"([A-Z0-9]{5,})\s+(\d{1,2}/\d{1,2}/\d{2,4})", lines[0])
-        if m:
-            data["ID"] = f"{m.group(1)} {m.group(2)}"
-            lines = lines[1:]
+        top_block = " ".join(lines[:3])
+        m_card = re.search(r'\b[A-Z]{2,3}\d{5,10}\b', top_block)
+        m_reg  = re.search(r'\b\d{1,3}/\d{1,3}/\d{1,3}\b', top_block)
+
+        if m_card:
+            data["CardID"] = m_card.group(0)
+        else:
+            data["CardID"] = ""
+
+        if m_reg:
+            data["RegNo"] = m_reg.group(0)
+        else:
+            data["RegNo"] = ""
+
+        # remove top line after reading ID info to avoid name confusion
+        lines = lines[1:]
 
     # Voter name (preferred pattern)
     voter_pat = re.compile(r"(?:मतदार(?:ाचे)?\s*(?:पूर्ण\s*)?)\s*[:ः]?\s*(.+)", re.I)
@@ -210,16 +205,11 @@ def parse_card(text: str) -> dict:
 
     return data
 
-# ---------------- FACE CROP ----------------
-
+# FACE CROP
 def crop_person_photo(card_path: Path) -> Path:
-    """
-    Crop the voter photo (top-right corner) from a card image and return the saved path.
-    """
     img = Image.open(card_path)
     w, h = img.size
 
-    # tuned ratios (can be adjusted)
     left   = int(w * 0.78)
     top    = int(h * 0.30)
     right  = int(w * 0.98)
@@ -238,33 +228,24 @@ def crop_person_photo(card_path: Path) -> Path:
     face.save(out_path, "PNG")
     return out_path
 
-# ---------------- EXCEL GENERATION ----------------
-
+# EXCEL GENERATION
 def generate_excel_from_cards(start_serial: int = START_SERIAL):
-    """
-    Main pipeline: crop (if needed), OCR (parallel), parse, create Excel (one row per voter),
-    insert thumbnail images and auto-adjust row heights, then cleanup images.
-    """
-    # 1) Ensure cards exist (crop if necessary)
-    card_files = crop_all_cards()  # returns sorted list of Path objects in IMG_DIR
+    card_files = crop_all_cards()
 
     if not card_files:
         raise FileNotFoundError("No card images found and source crop failed.")
 
-    # 2) OCR in parallel (preserve order using map)
     cpu_count = max(1, os.cpu_count() or 1)
     with ProcessPoolExecutor(max_workers=cpu_count) as executor:
         ocr_results = list(executor.map(ocr_card, card_files))
 
-    # 3) Create workbook & header
     wb = Workbook()
     ws = wb.active
     ws.title = "Sheet1"
 
     headers = [
-        "S.No.", "ID", "Serial", "मतदाराचे पूर्ण:",
-        "पतीचे नाव / वडिलांचे नाव", "घर क्रमांक :",
-        "वय :", "लिंग :", "Face image"
+        "S.No.", "Card ID", "Reg. No.", "मतदाराचे पूर्ण: नाव",
+        "पतीचे नाव / वडिलांचे नाव", "घर क्रमांक :", "वय :", "लिंग :", "Face image"
     ]
     for col_idx, header in enumerate(headers, start=1):
         cell = ws.cell(1, col_idx, header)
@@ -280,9 +261,9 @@ def generate_excel_from_cards(start_serial: int = START_SERIAL):
         d = parse_card(txt)
 
         # populate text columns
-        ws.cell(row, 1, idx + 1).font = MARATHI_FONT               # S.No.
-        ws.cell(row, 2, d.get("ID", "")).font = MARATHI_FONT       # ID
-        ws.cell(row, 3, serial).font = MARATHI_FONT                # Serial
+        ws.cell(row, 1, idx + 1).font = MARATHI_FONT
+        ws.cell(row, 2, d.get("CardID", "")).font = MARATHI_FONT
+        ws.cell(row, 3, d.get("RegNo", "")).font = MARATHI_FONT
         ws.cell(row, 4, d.get("VoterName", "")).font = MARATHI_FONT
         ws.cell(row, 5, d.get("RelationName", "")).font = MARATHI_FONT
         ws.cell(row, 6, d.get("House", "")).font = MARATHI_FONT
@@ -303,7 +284,6 @@ def generate_excel_from_cards(start_serial: int = START_SERIAL):
                 img_for_excel.width, img_for_excel.height = THUMB_W, THUMB_H
                 cell_ref = f"I{row}"
                 ws.add_image(img_for_excel, cell_ref)
-                # set this row height to match image (pixels -> points approx)
                 ws.row_dimensions[row].height = img_for_excel.height * 0.75
             except Exception as e:
                 print(f"⚠️ Adding image failed for row {row}: {e}")
@@ -319,7 +299,7 @@ def generate_excel_from_cards(start_serial: int = START_SERIAL):
             ws.column_dimensions['I'].width = max(18, int(THUMB_W * 0.14) + 2)
             continue
         max_len = max((len(str(c.value)) for c in col if c.value), default=0)
-        ws.column_dimensions[col_letter].width = min(max_len + 2, 60)
+        ws.column_dimensions[col_letter].width = min(max_len + 3, 60)
 
     wb.save(EXCEL_OUT)
     print(f"\nExcel saved: {EXCEL_OUT}")
@@ -328,23 +308,19 @@ def generate_excel_from_cards(start_serial: int = START_SERIAL):
     # Cleanup temp images
     cleanup_images()
 
-# ---------------- CLEANUP ----------------
-
+# CLEANUP
 def cleanup_images():
-    """Delete temporary folder with cropped cards and faces."""
     try:
         if IMG_DIR.exists():
-            # small delay so any file handles are released
             time.sleep(0.1)
             shutil.rmtree(IMG_DIR)
             print(f"🧹 Cleaned up temporary folder: {IMG_DIR}")
     except Exception as e:
         print(f"⚠️ Cleanup failed: {e}")
 
-# ---------------- RUN ----------------
+# RUN
 
 if __name__ == "__main__":
-    # Basic sanity checks
     if not Path(IMG_SOURCE).exists():
         print(f"ERROR: Source image '{IMG_SOURCE}' not found. Place voters.jpg in script folder.")
     else:
