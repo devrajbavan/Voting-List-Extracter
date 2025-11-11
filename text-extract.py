@@ -20,7 +20,7 @@ pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
 IMG_SOURCE   = "voters.jpg"
 IMG_DIR      = Path("temp")
-EXCEL_OUT    = "voter_data.xlsx"
+EXCEL_OUT    = "voter_data1.xlsx"
 START_SERIAL = 9
 
 TESS_LANG = "mar+eng"
@@ -244,8 +244,8 @@ def generate_excel_from_cards(start_serial: int = START_SERIAL):
     ws.title = "Sheet1"
 
     headers = [
-        "S.No.", "Card ID", "Reg. No.", "मतदाराचे पूर्ण: नाव",
-        "पतीचे नाव / वडिलांचे नाव", "घर क्रमांक :", "वय :", "लिंग :", "Face image"
+        "Voter ID", "Reg. No.", "Name",
+        "Guardian name", "House No", "Age", "Gender(Male,Female,Other)", "image"
     ]
     for col_idx, header in enumerate(headers, start=1):
         cell = ws.cell(1, col_idx, header)
@@ -261,14 +261,13 @@ def generate_excel_from_cards(start_serial: int = START_SERIAL):
         d = parse_card(txt)
 
         # populate text columns
-        ws.cell(row, 1, idx + 1).font = MARATHI_FONT
-        ws.cell(row, 2, d.get("CardID", "")).font = MARATHI_FONT
-        ws.cell(row, 3, d.get("RegNo", "")).font = MARATHI_FONT
-        ws.cell(row, 4, d.get("VoterName", "")).font = MARATHI_FONT
-        ws.cell(row, 5, d.get("RelationName", "")).font = MARATHI_FONT
-        ws.cell(row, 6, d.get("House", "")).font = MARATHI_FONT
-        ws.cell(row, 7, d.get("Age", "")).font = MARATHI_FONT
-        ws.cell(row, 8, d.get("GenderFull", "पुरुष")).font = MARATHI_FONT
+        ws.cell(row, 1, d.get("CardID", "")).font = MARATHI_FONT
+        ws.cell(row, 2, d.get("RegNo", "")).font = MARATHI_FONT
+        ws.cell(row, 3, d.get("VoterName", "")).font = MARATHI_FONT
+        ws.cell(row, 4, d.get("RelationName", "")).font = MARATHI_FONT
+        ws.cell(row, 5, d.get("House", "")).font = MARATHI_FONT
+        ws.cell(row, 6, d.get("Age", "")).font = MARATHI_FONT
+        ws.cell(row, 7, d.get("GenderFull", "पुरुष")).font = MARATHI_FONT
 
         # crop face and embed image (if crop produced a file)
         face_path = None
